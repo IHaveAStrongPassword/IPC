@@ -16,9 +16,10 @@ import argparse
 import glob
 
 cwd = os.path.realpath('.')
-input = f'{cwd}/input/'
-output = f'{cwd}/output/'
-incomplete = f'{cwd}/incomplete/'
+inputDir = f'input'
+outputDir = f'output'
+incompleteDir = f'incomplete'
+testDir = f'test-out'
 
 parser = argparse.ArgumentParser(description='Run models in IPC with pause functionality')
 parser.add_argument('-p', '--print', action='store_true', help='Prints commands only')
@@ -29,7 +30,7 @@ args = parser.parse_args()
 # on Minchen's Mac:
 # progPath = '/Users/mincli/Library/Developer/Xcode/DerivedData/IPC-cegibpdumtrmuqbjruacrqwltitb/Build/Products/Release/IPC'
 # on Ubuntu:
-progPath = f'{cwd}/build/IPC_bin'
+binPath = f'build/IPC_bin'
 # progPath = os.path.realpath('.') + '/src/Projects/DistortionMin/DistortionMin'
 
 # envSetStr = 'export LD_LIBRARY_PATH=/usr/local/lib\n'
@@ -53,37 +54,45 @@ if True:
         (See Toothy's implementation in the comments)
         '''
         return [ atoi(c) for c in re.split(r'(\d+)', text) ]
-    def run(model):
-        inp = f'input/{model}'
-        status = glob.glob(f'{incomplete}{model}/status*')
+    def run(inputPath):
+        #inputPath = os.path.relpath(inputPath, '.')
+        model = os.path.basename(inputPath)
+        status = glob.glob(f'{incompleteDir}/{model}/status*')
         status.sort(key=natural_keys)
         if len(status) > 0:
             status = status[-1]
             text = ''
-            with open(inp, 'r') as f:
+            with open(inputPath, 'r') as f:
                 text = f.read()
-            end = t.find('\nrestart')
+            end = text.find('\nrestart')
             if end > -1:
                 text = text[:end]
             text = f'{text}\nrestart {status}\n'
-            with open(inp, 'w') as f:
+            with open(inputPath, 'w') as f:
                 f.write(text)
     
-        inc = f'incomplete/{model}'
-        out = f'output/{model}'
+        incompletePath = f'{incompleteDir}/{model}'
+        outputPath = f'{outputDir}/{model}'
         
         if args.print:
-            cmd = f'{progPath} 100 {inp} --numThreads {THREADS} -o {out}'
+            cmd = f'{binPath} 100 {inputPath} --numThreads {THREADS} -o {testDir}/{model}'
             print(cmd)
             return
-        cmd = f'{progPath} 100 {inp} --numThreads {THREADS} -o {inc}'
+        cmd = f'{binPath} 100 {inputPath} --numThreads {THREADS} -o {incompletePath}'
         subprocess.call([setThreadCount + cmd], shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         print(f'complete: {model}')
-        subprocess.call([f'mv {inc} {out}'], shell=True)
-    def shouldRun(f):
-        hasOutput =  isdir(join(output, f))
-        #hasIncomplete = isdir(join(incomplete, f))
-        return isfile(join(input, f)) and not hasOutput #and hasIncomplete
-    files = filter(shouldRun, listdir(input))
+        subprocess.call([f'mv {incompletePath} {outputPath}'], shell=True)
+    def shouldRun(modelPath):
+        model = os.path.basename(modelPath)
+        hasFile = isfile(modelPath)
+        hasTxt = model.endswith('.txt')
+        hasOutput = isdir(f'{outputDir}/{model}')
+        #hasIncomplete = isdir(f'{incompleteDir}/{f}')
+        return hasFile and hasTxt and not hasOutput #and hasIncomplete
+
+    modelPaths = [os.path.relpath(f'{d}/{f}', '.') for (d, _, files) in os.walk(inputDir) for f in files]
+    #print(modelPaths)
+    modelPaths = list(filter(shouldRun, modelPaths))
+    #print(modelPaths)
     pool = Pool()
-    pool.map(run, files)
+    pool.map(run, modelPaths)

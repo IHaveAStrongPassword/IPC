@@ -15,6 +15,9 @@ parser.add_argument('-i', '--index', nargs='+', help='View models at index')
 parser.add_argument('-t', '--time', action='store_true', help='Sort activity by time')
 parser.add_argument('-n', '--name', action='store_true', help='Sort activity by name')
 parser.add_argument('-z', '--zeros', action='store_true', help='Hide activity with zero time') 
+
+
+parser.add_argument('-s', '--subtotal', action='store_true', help='Display subtotals')
 args = parser.parse_args()
 
 models =  [d for d in os.scandir('./output/') if d.is_dir()]
@@ -37,7 +40,7 @@ for model in models:
                 (time, name) = pair
                 #print(f'{name:<16}{time}')
                 all[name] = all.get(name, 0) + float(time)
-                if name == 'Total':
+                if name == 'Total' and args.subtotal:
                     i_total += 1
                     key = f'Total [{i_total}]'
                     all[key] = all.get(key, 0) + float(time)

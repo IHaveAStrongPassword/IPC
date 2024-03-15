@@ -1,4 +1,11 @@
 ################################################################################
+input/
+incomplete/
+test-out/
+
+resultsStats.txt
+debug.obj
+
 # Python
 # Byte-compiled / optimized / DLL files
 __pycache__/
