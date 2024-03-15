@@ -7,10 +7,16 @@ import re
 import argparse
 import glob
 
+THREADS = 12
+
 cwd = os.path.realpath('.')
 input = f'{cwd}/input/'
 output = f'{cwd}/output/'
 incomplete = f'{cwd}/incomplete/'
+
+parser = argparse.ArgumentParser(description='Run models in IPC')
+parser.add_argument('-p', '--print', action='store_true', help='Prints commands only')
+args = parser.parse_args()
 
 # on Mac:
 # progPath = os.path.realpath('.') + '/build/Release/IPC_bin'
@@ -28,6 +34,11 @@ NTSetStr1 = 'export OMP_NUM_THREADS='
 # for Mac when CHOLMOD is compiled with default LAPACK and BLAS
 NTSetStr2 = 'export VECLIB_MAXIMUM_THREADS='
 
+setThreadCount = f'{NTSetStr0}{THREADS}\n{NTSetStr1}{THREADS}\n{NTSetStr2}{THREADS}\n'
+
+if args.print:
+    print(setThreadCount)
+
 def atoi(text):
     return int(text) if text.isdigit() else text
 def natural_keys(text):
@@ -39,31 +50,32 @@ def natural_keys(text):
     return [ atoi(c) for c in re.split(r'(\d+)', text) ]
 
 def run(model):
-    i = f'{input}{model}'
+    inp = f'{input}{model}'
     s = glob.glob(f'{incomplete}{model}/status*')
     s.sort(key=natural_keys)
     if len(s) > 0:
         s = s[-1]
-        t = ''
-        with open(i, 'r') as f:
-            t = f.read()
+        text = ''
+        with open(inp, 'r') as f:
+            text = f.read()
         prev = t.find('\nrestart')
         if prev > -1:
-            t = t[:prev]
-        t = f'{t}\nrestart {s}\n'
+            text = text[:prev]
+        text = f'{t}\nrestart {s}\n'
         with open(i, 'w') as f:
-            f.write(t)
+            f.write(text)
 
-    n = f'incomplete/{model}'
-    o = f'output/{model}'
-    s = f'{NTSetStr0}12\n'
-    s+= f'{NTSetStr1}12\n'
-    s+= f'{NTSetStr2}12\n'
-    s+= f'{progPath} 100 {i} t12 -o {n}'
-    subprocess.call([s], shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    inc = f'incomplete/{model}'
+    out = f'output/{model}'
+    
+    cmd = f'{progPath} 100 {inp} --numThreads {THREADS} -o {inc}'
+    if args.print:
+        print(cmd)
+        return
+    subprocess.call([setThreadCount + cmd], shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     print(f'complete: {model}')
-    subprocess.call([f'mv {n} {o}'], shell=True)
-for numOfThreads in ['12']:
+    subprocess.call([f'mv {inc} {out}'], shell=True)
+if True:
     def shouldRun(f):
         hasOutput =  isdir(join(output, f))
         #hasIncomplete = isdir(join(incomplete, f))
